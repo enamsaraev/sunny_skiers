@@ -2,14 +2,20 @@ package main
 
 import (
 	"fmt"
-	"skiers/internal/config"
+	"path/filepath"
+	"skiers/internal/events"
 )
 
 func main() {
-	cfg, err := config.LoadConfig("config.json")
-	if err != nil {
-		panic(err)
-	}
+	/*
+		cfg, err := config.LoadConfig(filepath.Join("data", "config.json"))
+		if err != nil {
+			fmt.Println(err)
+		}
+	*/
 
-	fmt.Println(cfg)
+	err := events.LogCompetitorsData(filepath.Join("data", "events"))
+	if err != nil {
+		fmt.Println(err)
+	}
 }
