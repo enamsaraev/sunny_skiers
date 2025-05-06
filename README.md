@@ -1,3 +1,13 @@
+# Comments
+
+## Run
+
+- git clone https://github.com/enamsaraev/sunny_skiers
+- cd sunny_skiers
+- go mod download
+- go build cmd/app/main.go
+- ./main
+
 # System prototype for biathlon competitions
 The prototype must be able to work with a configuration file and a set of external events of a certain format.
 Solution should contain golang (1.20 or newer) source file/files and unit tests (optional)
