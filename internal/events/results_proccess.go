@@ -3,6 +3,7 @@ package events
 import (
 	"fmt"
 	"skiers/internal/config"
+	"skiers/pkg/logger"
 	"sort"
 	"strings"
 	"sync"
@@ -81,7 +82,15 @@ func (cld *CompetitorLapData) getTime(eventsDataById *EventDataById, events []*E
 		lapData := LapData{}
 		penaltyLapData := LapData{}
 
-		lapData.Time = events[i+1].Time.Sub(events[i].Time)
+		if i == 0 {
+			startTime, _ := time.Parse("15:04:05.000", events[i].ExtraParams)
+
+			lapData.Time = events[i+1].Time.Sub(startTime)
+		} else {
+			lapData.Time = events[i+1].Time.Sub(events[i].Time)
+
+		}
+
 		lapData.Speed = float64(cfg.LapLen) / lapData.Time.Seconds()
 
 		if penaltyCounter < len(eventsDataById.Data[8]) {
@@ -135,6 +144,8 @@ func (ced *CompetitorEventData) Get() map[int]*EventDataById {
 }
 
 func getCompetitorEventData(eventData *EventData) *CompetitorEventData {
+	logger.GetLogger().Info("Start grouping events by competitors ID")
+
 	ced := &CompetitorEventData{mu: &sync.Mutex{}, data: make(map[int]*EventDataById)}
 
 	wg := sync.WaitGroup{}
@@ -147,7 +158,7 @@ func getCompetitorEventData(eventData *EventData) *CompetitorEventData {
 
 			competitorEvents, _ := eventData.Get(competitorId)
 
-			eventsById := getCompetitorEventDataById(competitorEvents)
+			eventsById := getCompetitorEventDataById(competitorId, competitorEvents)
 			ced.Set(competitorId, eventsById)
 		}()
 	}
@@ -157,7 +168,9 @@ func getCompetitorEventData(eventData *EventData) *CompetitorEventData {
 	return ced
 }
 
-func getCompetitorEventDataById(competitorEvents []*Event) *EventDataById {
+func getCompetitorEventDataById(competitorId int, competitorEvents []*Event) *EventDataById {
+	logger.GetLogger().Infof("Start grouping competitior(%d) events by event ID", competitorId)
+
 	eventsById := make(map[int][]*Event)
 
 	for _, event := range competitorEvents {
@@ -170,10 +183,12 @@ func getCompetitorEventDataById(competitorEvents []*Event) *EventDataById {
 func CreateResultTable(eventData *EventData, cfg *config.Config) {
 	competitorEventData := getCompetitorEventData(eventData)
 
+	logger.GetLogger().Info("Results Table\n")
+
 	for competitorId, eventsDataById := range competitorEventData.Get() {
 		events := make([]*Event, len(eventsDataById.Data[10])+1)
 
-		startEvent, _ := eventsDataById.Data[4]
+		startEvent, _ := eventsDataById.Data[2]
 		lapEvents, _ := eventsDataById.Data[10]
 
 		events[0] = startEvent[0]

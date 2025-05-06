@@ -8,9 +8,12 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"skiers/pkg/logger"
 	"strconv"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -67,24 +70,25 @@ type Event struct {
 	ExtraParams  string
 }
 
-func ParseEventFile(path string) *EventData {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func ParseEventFile(path string) (*EventData, error) {
+	g, ctx := errgroup.WithContext(context.Background())
 
 	cpuNum := runtime.NumCPU()
 	lines := readFile(ctx, path, cpuNum)
 
 	eventData := NewEventData()
-	wg := sync.WaitGroup{}
 
 	for i := 0; i < cpuNum; i++ {
-		wg.Add(1)
-		go worker(ctx, &wg, eventData, lines)
+		g.Go(func() error {
+			return worker(ctx, i, eventData, lines)
+		})
 	}
 
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
 
-	return eventData
+	return eventData, nil
 }
 
 func atoi(str string) int {
@@ -96,14 +100,21 @@ func readFile(ctx context.Context, path string, cpuNum int) chan string {
 	lines := make(chan string, cpuNum*2)
 
 	go func() {
+		defer close(lines)
+
+		logger.GetLogger().Info("start reading event file")
+
 		file, err := os.Open(path)
 		if err != nil {
-			fmt.Println(err)
+			logger.GetLogger().Errorf("error while opening event file: %v", err)
+			return
 		}
+
 		defer func(file *os.File) {
 			err = file.Close()
 			if err != nil {
-				fmt.Println(err)
+				logger.GetLogger().Errorf("error while closing event file: %v", err)
+				return
 			}
 		}(file)
 
@@ -115,8 +126,6 @@ func readFile(ctx context.Context, path string, cpuNum int) chan string {
 			case lines <- scanner.Text():
 			}
 		}
-
-		close(lines)
 	}()
 
 	return lines
@@ -141,23 +150,24 @@ func parseLine(line string) (*Event, error) {
 	}, nil
 }
 
-func worker(ctx context.Context, wg *sync.WaitGroup, eventData *EventData, lines chan string) {
-	defer wg.Done()
+func worker(ctx context.Context, workerNumber int, eventData *EventData, lines chan string) error {
+	logger.GetLogger().Infof("worker #%d starts parsing lines", workerNumber)
 
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		case line, ok := <-lines:
 			if !ok {
-				return
+				return nil
 			}
+
 			event, err := parseLine(line)
 			if err != nil {
-				fmt.Println(err)
-			} else {
-				eventData.Set(event)
+				return err
 			}
+
+			eventData.Set(event)
 		}
 	}
 }
