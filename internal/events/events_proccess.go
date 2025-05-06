@@ -2,6 +2,7 @@ package events
 
 import (
 	"fmt"
+	"skiers/pkg/logger"
 	"sort"
 	"strings"
 )
@@ -61,24 +62,33 @@ func newEventMapString() *eventMapString {
 }
 
 func LogCompetitorsData(eventData *EventData) error {
+	logger.GetLogger().Info("Creating events log")
+
 	sortedEvents := getSortedEventsByTime(eventData)
 
 	ems := newEventMapString()
 
+	logger.GetLogger().Info("Building events log")
 	var builder strings.Builder
+
 	for _, e := range sortedEvents {
 		eventString, ok := ems.getString(e)
 		if !ok {
-			fmt.Println("error", e)
+			return fmt.Errorf("invalid event: %v", e)
 		}
+
 		builder.WriteString(eventString)
 	}
+
+	logger.GetLogger().Info("Printing events log\n")
 	fmt.Println(builder.String())
 
 	return nil
 }
 
 func getSortedEventsByTime(eventData *EventData) []*Event {
+	logger.GetLogger().Info("Getting sorted events")
+
 	fullEvents := eventData.GetAllEvents()
 
 	sort.Slice(fullEvents, func(i, j int) bool {
