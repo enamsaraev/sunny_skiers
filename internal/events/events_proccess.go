@@ -60,8 +60,7 @@ func newEventMapString() *eventMapString {
 	}}
 }
 
-func LogCompetitorsData(path string) error {
-	eventData := ParseEventFile(path)
+func LogCompetitorsData(eventData *EventData) error {
 	sortedEvents := getSortedEventsByTime(eventData)
 
 	ems := newEventMapString()
